@@ -1,5 +1,4 @@
 # NexusForge
-
 ### What is NexusForge?
 
 NexusForge is a web-based platform where companies can build, automate, monitor, and manage their entire business workflow through a visual interface.
