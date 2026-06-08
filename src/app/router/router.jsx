@@ -9,6 +9,7 @@ import Dashboard from "../../pages/dashboard/Dashboard";
 
 import AuthLayout from "../../layouts/AuthLayout";
 import DashboardLayout from "../../layouts/DashboardLayout";
+import ThemeGenerator from "../../components/theme/ThemeGenerator";
 
 export const router =
     createBrowserRouter([
@@ -27,6 +28,15 @@ export const router =
                 <AuthLayout>
                     <Register />
                 </AuthLayout>
+            ),
+        },
+
+        {
+            path: "/themes",
+            element: (
+                <DashboardLayout>
+                    <ThemeGenerator />
+                </DashboardLayout>
             ),
         },
 

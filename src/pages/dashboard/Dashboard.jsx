@@ -4,14 +4,11 @@ import {
     Card,
     Statistic,
 } from "antd";
-import ThemeGenerator from "../../components/theme/ThemeGenerator";
-
 
 export default function Dashboard() {
     return (
         <>
-        <ThemeGenerator />
-            <Row gutter={16}>
+                <Row gutter={16}>
                 <Col xs={24} md={8}>
                     <Card>
                         <Statistic
