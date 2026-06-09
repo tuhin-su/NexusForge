@@ -1,207 +1,273 @@
-import { Button, Checkbox, Form, Input, Typography } from "antd";
-import { motion } from "motion/react";
 import {
-    LockOutlined,
+    Button,
+    Checkbox,
+    Divider,
+    Form,
+    Input,
+    Typography,
+    theme,
+} from "antd";
+
+import {
+    UserOutlined,
     MailOutlined,
-    ArrowRightOutlined,
-    DatabaseOutlined,
+    LockOutlined,
 } from "@ant-design/icons";
+
+import { Link } from "react-router-dom";
 
 const { Title, Text } = Typography;
 
-export default function LoginPage() {
+export default function Register() {
+    const { token } = theme.useToken();
+
+    const submit = (values) => {
+        console.log(values);
+    };
+
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="
-                bg-white
-                rounded-[32px]
-                p-10
-                shadow-[0_25px_80px_rgba(0,0,0,0.08)]
-                border
-                border-slate-100
-            "
-        >
-            {/* Logo */}
-            <div className="flex items-center gap-4 mb-8">
+        <div className="w-full">
+
+            {/* Header */}
+
+            <div className="mb-8">
                 <div
-                    className="
-                        h-14
-                        w-14
-                    "
+                    className="inline-flex items-center justify-center h-14 w-14 rounded-2xl mb-5"
+                    style={{
+                        background: token.colorPrimaryBg,
+                        color: token.colorPrimary,
+                    }}
                 >
-                    <svg
-                            width="52"
-                            height="52"
-                            viewBox="0 0 128 128"
-                            fill="none"
-                        >
-                            <defs>
-                                <linearGradient
-                                    id="inventoryGradient"
-                                    x1="0"
-                                    y1="0"
-                                    x2="128"
-                                    y2="128"
-                                >
-                                    <stop offset="0%" stopColor="#1677ff" />
-                                    <stop offset="100%" stopColor="#36cfc9" />
-                                </linearGradient>
-                            </defs>
-
-                            <rect
-                                x="12"
-                                y="12"
-                                width="104"
-                                height="104"
-                                rx="28"
-                                fill="url(#inventoryGradient)"
-                            />
-
-                            <path
-                                d="M64 34L88 46V74L64 86L40 74V46L64 34Z"
-                                stroke="white"
-                                strokeWidth="5"
-                                strokeLinejoin="round"
-                            />
-
-                            <path
-                                d="M64 34V60"
-                                stroke="white"
-                                strokeWidth="5"
-                            />
-
-                            <path
-                                d="M40 46L64 60L88 46"
-                                stroke="white"
-                                strokeWidth="5"
-                            />
-
-                            <path
-                                d="M64 60V86"
-                                stroke="white"
-                                strokeWidth="5"
-                            />
-                        </svg>
+                    <UserOutlined style={{ fontSize: 24 }} />
                 </div>
 
-                <div>
-                    <h2 className="text-xl font-bold m-0">
-                        Nexus Inventory
-                    </h2>
+                <Title
+                    level={2}
+                    style={{
+                        marginBottom: 8,
+                    }}
+                >
+                    Create Account
+                </Title>
 
-                    <Text type="secondary">
-                        Warehouse Management System
-                    </Text>
-                </div>
+                <Text type="secondary">
+                    Join the platform and start managing
+                    inventory, warehouses and logistics.
+                </Text>
             </div>
-
-            {/* Heading */}
-
-            <Title
-                level={2}
-                style={{
-                    marginBottom: 8,
-                }}
-            >
-                Welcome Back 👋
-            </Title>
-
-            <Text type="secondary">
-                Sign in to access inventory, orders,
-                logistics and warehouse operations.
-            </Text>
 
             {/* Form */}
 
             <Form
                 layout="vertical"
-                className="mt-8"
                 size="large"
+                onFinish={submit}
+                requiredMark={false}
             >
+                <Form.Item
+                    label="Full Name"
+                    name="name"
+                    rules={[
+                        {
+                            required: true,
+                            message: "Please enter your full name",
+                        },
+                    ]}
+                >
+                    <Input
+                        prefix={<UserOutlined />}
+                        placeholder="John Doe"
+                    />
+                </Form.Item>
+
                 <Form.Item
                     label="Email Address"
                     name="email"
+                    rules={[
+                        {
+                            required: true,
+                            message: "Please enter your email",
+                        },
+                        {
+                            type: "email",
+                        },
+                    ]}
                 >
                     <Input
                         prefix={<MailOutlined />}
-                        placeholder="name@company.com"
+                        placeholder="john@company.com"
                     />
                 </Form.Item>
 
                 <Form.Item
                     label="Password"
                     name="password"
+                    rules={[
+                        {
+                            required: true,
+                            message: "Please enter a password",
+                        },
+                    ]}
                 >
                     <Input.Password
                         prefix={<LockOutlined />}
-                        placeholder="Enter password"
+                        placeholder="Create password"
                     />
                 </Form.Item>
 
-                <div className="flex items-center justify-between mb-6">
-                    <Checkbox>
-                        Remember me
-                    </Checkbox>
+                <Form.Item
+                    label="Confirm Password"
+                    name="confirmPassword"
+                    dependencies={["password"]}
+                    rules={[
+                        {
+                            required: true,
+                            message: "Confirm your password",
+                        },
+                        ({ getFieldValue }) => ({
+                            validator(_, value) {
+                                if (
+                                    !value ||
+                                    value ===
+                                        getFieldValue("password")
+                                ) {
+                                    return Promise.resolve();
+                                }
 
-                    <a
-                        href="#"
-                        className="font-medium"
-                    >
-                        Forgot Password?
-                    </a>
-                </div>
+                                return Promise.reject(
+                                    new Error(
+                                        "Passwords do not match"
+                                    )
+                                );
+                            },
+                        }),
+                    ]}
+                >
+                    <Input.Password
+                        prefix={<LockOutlined />}
+                        placeholder="Confirm password"
+                    />
+                </Form.Item>
+
+                <Form.Item
+                    name="terms"
+                    valuePropName="checked"
+                >
+                    <Checkbox>
+                        I agree to the Terms of Service
+                        and Privacy Policy
+                    </Checkbox>
+                </Form.Item>
 
                 <Button
-                    htmlType="submit"
-                    type="primary"
-                    size="large"
                     block
-                    icon={<ArrowRightOutlined />}
-                    iconPosition="end"
+                    size="large"
+                    type="primary"
+                    htmlType="submit"
                     style={{
-                        height: 52,
-                        borderRadius: 14,
+                        height: 48,
+                        fontWeight: 600,
                     }}
                 >
-                    Sign In
+                    Create Account
                 </Button>
             </Form>
 
+            <Divider>
+                <Text type="secondary">
+                    Secure Registration
+                </Text>
+            </Divider>
+
+            {/* Features */}
+
+            <div className="grid grid-cols-3 gap-3 mb-8">
+
+                <div
+                    className="rounded-xl p-3 text-center"
+                    style={{
+                        background: token.colorFillTertiary,
+                    }}
+                >
+                    <div
+                        style={{
+                            fontWeight: 700,
+                            color: token.colorPrimary,
+                        }}
+                    >
+                        99.9%
+                    </div>
+
+                    <Text
+                        type="secondary"
+                        style={{ fontSize: 12 }}
+                    >
+                        Accuracy
+                    </Text>
+                </div>
+
+                <div
+                    className="rounded-xl p-3 text-center"
+                    style={{
+                        background: token.colorFillTertiary,
+                    }}
+                >
+                    <div
+                        style={{
+                            fontWeight: 700,
+                            color: token.colorPrimary,
+                        }}
+                    >
+                        24/7
+                    </div>
+
+                    <Text
+                        type="secondary"
+                        style={{ fontSize: 12 }}
+                    >
+                        Monitoring
+                    </Text>
+                </div>
+
+                <div
+                    className="rounded-xl p-3 text-center"
+                    style={{
+                        background: token.colorFillTertiary,
+                    }}
+                >
+                    <div
+                        style={{
+                            fontWeight: 700,
+                            color: token.colorPrimary,
+                        }}
+                    >
+                        Cloud
+                    </div>
+
+                    <Text
+                        type="secondary"
+                        style={{ fontSize: 12 }}
+                    >
+                        Managed
+                    </Text>
+                </div>
+
+            </div>
+
             {/* Footer */}
 
-            <div className="mt-8 pt-6 border-t border-slate-100">
-                <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                        <div className="font-bold text-lg">
-                            99.9%
-                        </div>
-                        <div className="text-xs text-slate-500">
-                            Accuracy
-                        </div>
-                    </div>
+            <div className="text-center">
+                <Text type="secondary">
+                    Already have an account?
+                </Text>
 
-                    <div>
-                        <div className="font-bold text-lg">
-                            24/7
-                        </div>
-                        <div className="text-xs text-slate-500">
-                            Monitoring
-                        </div>
-                    </div>
-
-                    <div>
-                        <div className="font-bold text-lg">
-                            500K+
-                        </div>
-                        <div className="text-xs text-slate-500">
-                            Transactions
-                        </div>
-                    </div>
-                </div>
+                <Link
+                    to="/login"
+                    className="ml-2 font-medium"
+                >
+                    Sign In
+                </Link>
             </div>
-        </motion.div>
+        </div>
     );
 }

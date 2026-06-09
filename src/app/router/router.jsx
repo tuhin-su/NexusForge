@@ -20,19 +20,13 @@ export const router =
                 {
                     path: "login",
                     element: <Login />
-                }
+                },
+                {
+                    path: "register",
+                    element: <Register />,
+                },
             ]
         },
-
-        {
-            path: "/register",
-            element: (
-                <AuthLayout>
-                    <Register />
-                </AuthLayout>
-            ),
-        },
-
         {
             path: "/themes",
             element: (
