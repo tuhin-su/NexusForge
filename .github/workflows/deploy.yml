@@ -109,14 +109,14 @@ jobs:
 
         - name: Execute Atomic Release via Tailscale Tunnel
           run: |
-          RELEASE_DIR="/var/www/nexusforge/releases/${{ github.sha }}"
-          SYMLINK_DIR="/var/www/nexusforge/live"
-          
-          # Use standard open-source rsync to securely push files
-          rsync -avz --quiet ./dist/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:$RELEASE_DIR/
-          
-          # Linux Symlink flip: updates instantly to eliminate user downtime during updates
-          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "ln -sfn $RELEASE_DIR $SYMLINK_DIR"
+            RELEASE_DIR="/var/www/nexusforge/releases/${{ github.sha }}"
+            SYMLINK_DIR="/var/www/nexusforge/live"
+            
+            # Use standard open-source rsync to securely push files
+            rsync -avz --quiet ./dist/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:$RELEASE_DIR/
+            
+            # Linux Symlink flip: updates instantly to eliminate user downtime during updates
+            ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "ln -sfn $RELEASE_DIR $SYMLINK_DIR"
 
   post-deploy:
     name: 📊 Reliability & Smoke Testing
