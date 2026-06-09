@@ -9,7 +9,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    setps:
+    steps:
       - name: Checkout Code
         uses: actions/checkout@4
       
