@@ -14,12 +14,14 @@ import ThemeGenerator from "../../components/theme/ThemeGenerator";
 export const router =
     createBrowserRouter([
         {
-            path: "/login",
-            element: (
-                <AuthLayout>
-                    <Login />
-                </AuthLayout>
-            ),
+            path: "/auth",
+            element: <AuthLayout />,
+            children: [
+                {
+                    path: "login",
+                    element: <Login />
+                }
+            ]
         },
 
         {
