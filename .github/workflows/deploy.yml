@@ -49,6 +49,7 @@ jobs:
         run:  |
           npm run lint --if-present
           npm run format:check --if-present
+  
   build:
     name: "🏗️ Compile & Test Matrix"
     needs: verify
@@ -81,42 +82,42 @@ jobs:
           path: dist/
           retention-days: 7
 
-    deploy:
-      name: 🚀 Zero-Downtime Production Release
-      needs: build
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      runs-on: ubuntu-latest
-      steps:
-        - name: Download Validated Production Assets
-          uses: actions/download-artifact@v4
-          with:
-            name: nexusforge-prod-build
-            path: ./dist
+  deploy:
+    name: 🚀 Zero-Downtime Production Release
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Validated Production Assets
+        uses: actions/download-artifact@v4
+        with:
+          name: nexusforge-prod-build
+          path: ./dist
         
-        - name: Establish Ephemeral Tailscale Secure Tunnel
-          uses: tailscale/github-action@v2
-          with:
-            oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-            oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-            tags: tag:personal-ci
+      - name: Establish Ephemeral Tailscale Secure Tunnel
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:personal-ci
         
-        - name: Inject Secure Deployment SSH Configuration
-          run: |
-            mkdir -p ~/.ssh
-            echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
-            chmod 600 ~/.ssh/id_rsa
-            ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+      - name: Inject Secure Deployment SSH Configuration
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
 
-        - name: Execute Atomic Release via Tailscale Tunnel
-          run: |
-            RELEASE_DIR="/var/www/nexusforge/releases/${{ github.sha }}"
-            SYMLINK_DIR="/var/www/nexusforge/live"
+      - name: Execute Atomic Release via Tailscale Tunnel
+        run: |
+          RELEASE_DIR="/var/www/nexusforge/releases/${{ github.sha }}"
+          SYMLINK_DIR="/var/www/nexusforge/live"
             
-            # Use standard open-source rsync to securely push files
-            rsync -avz --quiet ./dist/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:$RELEASE_DIR/
+          # Use standard open-source rsync to securely push files
+          rsync -avz --quiet ./dist/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:$RELEASE_DIR/
             
-            # Linux Symlink flip: updates instantly to eliminate user downtime during updates
-            ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "ln -sfn $RELEASE_DIR $SYMLINK_DIR"
+          # Linux Symlink flip: updates instantly to eliminate user downtime during updates
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "ln -sfn $RELEASE_DIR $SYMLINK_DIR"
 
   post-deploy:
     name: 📊 Reliability & Smoke Testing
