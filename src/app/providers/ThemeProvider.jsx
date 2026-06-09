@@ -1,9 +1,6 @@
-import { createContext, useContext, useState } from "react";
+import { useState } from "react";
 import { ConfigProvider, theme } from "antd";
-
-const ThemeContext = createContext();
-
-export const useThemeBuilder = () => useContext(ThemeContext);
+import { ThemeContext } from "./theme-context";
 
 export default function ThemeProvider({ children }) {
   const [themeConfig, setThemeConfig] = useState({
@@ -21,29 +18,29 @@ export default function ThemeProvider({ children }) {
       colorBgContainer: "#ffffff",
       colorBgLayout: "#f5f5f5",
 
-      colorText: "#000000d9"
+      colorText: "#000000d9",
     },
 
     components: {
       Button: {
-        borderRadius: 8
+        borderRadius: 8,
       },
 
       Card: {
-        borderRadiusLG: 12
+        borderRadiusLG: 12,
       },
 
       Input: {
-        controlHeight: 40
-      }
-    }
+        controlHeight: 40,
+      },
+    },
   });
 
   return (
     <ThemeContext.Provider
       value={{
         themeConfig,
-        setThemeConfig
+        setThemeConfig,
       }}
     >
       <ConfigProvider
@@ -54,8 +51,7 @@ export default function ThemeProvider({ children }) {
 
           token: themeConfig.token,
 
-          components:
-            themeConfig.components
+          components: themeConfig.components,
         }}
       >
         {children}
