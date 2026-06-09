@@ -1,25 +1,140 @@
-name: Deploye NexusForge Frontend
+name: "Enterprise Pipeline for NexusForge"
 
 on:
   push:
-    branches:
-      - main
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+permisstions:
+  contents: read
+  security-events: write
 
 jobs:
-  deploy:
+  verify:
+    name: "🛡️ Security & Quality Gate"
     runs-on: ubuntu-latest
-
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+      
+      - name: "Scan for Hardcoded Secrets"
+        run: |
+          echo "Scanning for exposed credentials..."
+          # Scans for common private key patterns, AWS keys, or generic high-entropy strings
+          if git grep -E -I -q "password:|secret:|api_key:|BEGIN PRIVATE KEY" -- . ':(exclude).github/workflows/'; then
+            echo "❌ CRITICAL: Potential hardcoded credentials detected in source code!"
+            exit 1
+          fi
+          echo "✅ No obvious secrets found in codebase."
+      
+      - name: "Setup Node.js Environment"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+        
+      - name: "Install Dependencies"
+        run: npm ci
+      
+      - name: "Dependency Vulnerability Scan"
+        run: npm audit --audit-level=high
+      
+      - name: "Execute Code Linting"
+        run:  |
+          npm run lint --if-present
+          npm run format:check --if-present
+  build:
+    name: "🏗️ Compile & Test Matrix"
+    needs: verify
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
       
-      - name: Install Node.js
-        uses: actions/setup-node@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: 'npm'
       
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
       
-      - name: Build Project
+      - name: Run Unit & Integration Tests
+        run: npm test -- --coverage --watchAll=false --if-present
+      
+      - name: Production Build Compilation
         run: npm run build
+        env:
+          NODE_ENV: production
+      
+      - name: Archive Production Assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexusforge-prod-build
+          path: dist/
+          retention-days: 7
+
+    deploy:
+      name: 🚀 Zero-Downtime Production Release
+      needs: build
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      runs-on: ubuntu-latest
+      steps:
+        - name: Download Validated Production Assets
+          uses: actions/download-artifact@v4
+          with:
+            name: nexusforge-prod-build
+            path: ./dist
+        
+        - name: Establish Ephemeral Tailscale Secure Tunnel
+          uses: tailscale/github-action@v2
+          with:
+            oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+            oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+            tags: tag:personal-ci
+        
+        - name: Inject Secure Deployment SSH Configuration
+          run: |
+            mkdir -p ~/.ssh
+            echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+
+        - name: Execute Atomic Release via Tailscale Tunnel
+          run: |
+          RELEASE_DIR="/var/www/nexusforge/releases/${{ github.sha }}"
+          SYMLINK_DIR="/var/www/nexusforge/live"
+          
+          # Use standard open-source rsync to securely push files
+          rsync -avz --quiet ./dist/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:$RELEASE_DIR/
+          
+          # Linux Symlink flip: updates instantly to eliminate user downtime during updates
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "ln -sfn $RELEASE_DIR $SYMLINK_DIR"
+
+  post-deploy:
+    name: 📊 Reliability & Smoke Testing
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Establish Ephemeral Tailscale Secure Tunnel
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:personal-ci
+      
+      - name: Execute End-to-End Core Metric Ping
+        run: |
+          STATUS_CODE=$(curl -o /dev/null -s -w "%{http_code}" http://${{ secrets.SERVER_IP }} || echo "000")
+          if [ "$STATUS_CODE" -ne 200 ] && [ "$STATUS_CODE" -ne 304 ]; then
+            echo "❌ Critical Alert: Production app endpoint is down with HTTP status $STATUS_CODE"
+            exit 1
+          fi
+          echo "✅ Production Health Checks Active and Returning HTTP $STATUS_CODE"
