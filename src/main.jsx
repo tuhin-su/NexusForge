@@ -10,11 +10,11 @@ import "antd/dist/reset.css";
 import "./index.css";
 
 ReactDOM.createRoot(
-  document.getElementById("root")
+    document.getElementById("root")
 ).render(
-  <React.StrictMode>
-    <ThemeProvider>
-      <RouterProvider router={router} />
-    </ThemeProvider>
-  </React.StrictMode>
+    <React.StrictMode>
+        <ThemeProvider>
+            <RouterProvider router={router} />
+        </ThemeProvider>
+    </React.StrictMode>
 );
