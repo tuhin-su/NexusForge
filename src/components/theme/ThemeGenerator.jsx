@@ -7,9 +7,7 @@ import {
   Typography
 } from "antd";
 
-import {
-  useThemeBuilder
-} from "../../app/providers/ThemeProvider";
+import { useThemeBuilder } from "../../app/providers/theme-context";
 
 export default function ThemeGenerator() {
   const {
