@@ -106,10 +106,20 @@ jobs:
         
       - name: Inject Secure Deployment SSH Configuration
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+
+            echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+
+            touch ~/.ssh/known_hosts
+            ssh-keyscan -t ed25519,rsa ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+            chmod 644 ~/.ssh/known_hosts
+
+            ssh -o StrictHostKeyChecking=yes \
+                -i ~/.ssh/id_rsa \
+                ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+                "echo SSH connection successful"
 
       - name: Execute Deployment
         run: |
