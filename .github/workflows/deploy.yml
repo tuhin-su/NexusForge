@@ -111,16 +111,13 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
 
-      - name: Execute Atomic Release via Tailscale Tunnel
+      - name: Execute Deployment
         run: |
-          RELEASE_DIR="/var/www/nexusforge/releases/${{ github.sha }}"
-          SYMLINK_DIR="/var/www/nexusforge/live"
-            
-          # Use standard open-source rsync to securely push files
-          rsync -avz --quiet ./dist/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:$RELEASE_DIR/
-            
-          # Linux Symlink flip: updates instantly to eliminate user downtime during updates
-          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "ln -sfn $RELEASE_DIR $SYMLINK_DIR"
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+            "mkdir -p /var/www/html"
+
+          rsync -avz --delete ./dist/ \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:/var/www/html/
 
   post-deploy:
     name: 📊 Reliability & Smoke Testing
