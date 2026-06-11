@@ -116,7 +116,7 @@ jobs:
           ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
             "mkdir -p /var/www/html"
 
-          rsync -avz --delete ./dist/ \
+          sudo rsync -avz --delete ./dist/ \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:/var/www/html/
 
   post-deploy:
