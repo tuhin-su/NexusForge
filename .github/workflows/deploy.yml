@@ -2,9 +2,11 @@ name: "Enterprise Pipeline for NexusForge"
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
   pull_request:
-    branches: ["main"]
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
@@ -19,131 +21,183 @@ jobs:
   verify:
     name: "🛡️ Security & Quality Gate"
     runs-on: ubuntu-latest
-    steps:
-      - name: "Checkout Code"
-        uses: actions/checkout@v4
-      
-      - name: "Scan for Hardcoded Secrets"
-        run: |
-          echo "Scanning for exposed credentials..."
-          # Scans for common private key patterns, AWS keys, or generic high-entropy strings
-          if git grep -E -I -q "password:|secret:|api_key:|BEGIN PRIVATE KEY" -- . ':(exclude).github/workflows/'; then
-            echo "❌ CRITICAL: Potential hardcoded credentials detected in source code!"
-            exit 1
-          fi
-          echo "✅ No obvious secrets found in codebase."
-      
-      - name: "Setup Node.js Environment"
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-        
-      - name: "Install Dependencies"
-        run: npm ci
-      
-      - name: "Dependency Vulnerability Scan"
-        run: npm audit --audit-level=high
-      
-      - name: "Execute Code Linting"
-        run:  |
-          npm run lint --if-present
-          npm run format:check --if-present
-  
-  build:
-    name: "🏗️ Compile & Test Matrix"
-    needs: verify
-    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-      
+
+      - name: Scan for Hardcoded Secrets
+        run: |
+          echo "Scanning for exposed credentials..."
+          if git grep -E -I -q "password:|secret:|api_key:|BEGIN PRIVATE KEY" -- . ':(exclude).github/workflows/'; then
+            echo "❌ Potential credentials detected"
+            exit 1
+          fi
+          echo "✅ No obvious secrets found"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: 'npm'
-      
+          cache: npm
+
       - name: Install Dependencies
         run: npm ci
-      
+
+      - name: Dependency Audit
+        run: npm audit --audit-level=high
+
+      - name: Lint & Format Check
+        run: |
+          npm run lint --if-present
+          npm run format:check --if-present
+
+  build:
+    name: "🏗️ Build & Test"
+    needs: verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
-      
-      - name: Run Unit & Integration Tests
+
+      - name: Run Tests
         run: npm test
-      
-      - name: Production Build Compilation
+
+      - name: Build Application
         run: npm run build
         env:
           NODE_ENV: production
-      
-      - name: Archive Production Assets
+
+      - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: nexusforge-prod-build
-          path: dist/
+          path: dist
           retention-days: 7
 
   deploy:
-    name: 🚀 Zero-Downtime Production Release
+    name: "🚀 Deploy Production"
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+
     steps:
-      - name: Download Validated Production Assets
+      - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
           name: nexusforge-prod-build
           path: ./dist
-        
-      - name: Establish Ephemeral Tailscale Secure Tunnel
-        uses: tailscale/github-action@v2
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:prod
-        
-      - name: Inject Secure Deployment SSH Configuration
-        run: |
-            mkdir -p ~/.ssh
-            chmod 700 ~/.ssh
 
-            echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
-            chmod 600 ~/.ssh/id_rsa
-
-            touch ~/.ssh/known_hosts
-            ssh-keyscan -t ed25519,rsa ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
-            chmod 644 ~/.ssh/known_hosts
-
-            ssh -o StrictHostKeyChecking=yes \
-                -i ~/.ssh/id_rsa \
-                ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
-                "echo SSH connection successful"
-
-      - name: Execute Deployment
-        run: |
-          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
-            "mkdir -p /var/www/html"
-
-          sudo rsync -avz --delete ./dist/ \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:/var/www/html/
-
-  post-deploy:
-    name: 📊 Reliability & Smoke Testing
-    needs: deploy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Establish Ephemeral Tailscale Secure Tunnel
+      - name: Connect To Tailscale
         uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.TS_AUTHKEY }}
-      
-      - name: Execute End-to-End Core Metric Ping
+
+      - name: Debug Tailscale
+        run: |
+          echo "===== TAILSCALE STATUS ====="
+          tailscale status || true
+
+          echo "===== TAILSCALE IP ====="
+          tailscale ip -4 || true
+
+          echo "===== TARGET SERVER ====="
+          echo "${{ secrets.SERVER_IP }}"
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          touch ~/.ssh/known_hosts
+
+          echo "===== SSH KEYSCAN ====="
+          ssh-keyscan -T 20 -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          echo "===== KNOWN HOSTS ====="
+          cat ~/.ssh/known_hosts || true
+
+      - name: Test SSH Connection
+        run: |
+          ssh \
+            -vvv \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -i ~/.ssh/id_rsa \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+            "hostname && whoami && pwd"
+
+      - name: Verify Remote Server
+        run: |
+          ssh \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -i ~/.ssh/id_rsa \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+            "mkdir -p /var/www/html && ls -lah /var/www"
+
+      - name: Deploy Files
+        run: |
+          rsync -avz \
+            --delete \
+            --progress \
+            -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa" \
+            ./dist/ \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:/var/www/html/
+
+      - name: Verify Deployment
+        run: |
+          ssh \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -i ~/.ssh/id_rsa \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} \
+            "ls -lah /var/www/html"
+
+      - name: Upload Debug Logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-debug
+          path: |
+            ~/.ssh
+
+  post-deploy:
+    name: "📊 Smoke Test"
+    needs: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Connect To Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+
+      - name: Health Check
         run: |
           STATUS_CODE=$(curl -o /dev/null -s -w "%{http_code}" http://${{ secrets.SERVER_IP }} || echo "000")
+
+          echo "HTTP STATUS: $STATUS_CODE"
+
           if [ "$STATUS_CODE" -ne 200 ] && [ "$STATUS_CODE" -ne 304 ]; then
-            echo "❌ Critical Alert: Production app endpoint is down with HTTP status $STATUS_CODE"
+            echo "❌ Health check failed"
             exit 1
           fi
-          echo "✅ Production Health Checks Active and Returning HTTP $STATUS_CODE"
+
+          echo "✅ Application healthy"
